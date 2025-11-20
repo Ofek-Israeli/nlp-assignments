@@ -12,16 +12,25 @@ def softmax(x):
     x -- You are allowed to modify x in-place
     """
     orig_shape = x.shape
-
     if len(x.shape) > 1:
         # Matrix
         ### YOUR CODE HERE
-        raise NotImplementedError
+        # Subtract max from each row for numerical stability
+        x -= np.max(x, axis=1, keepdims=True)
+        # Compute exponentials
+        x = np.exp(x)
+        # Normalize by dividing by sum of each row
+        x /= np.sum(x, axis=1, keepdims=True)
         ### END YOUR CODE
     else:
         # Vector
         ### YOUR CODE HERE
-        raise NotImplementedError
+        # Subtract max for numerical stability
+        x -= np.max(x)
+        # Compute exponentials
+        x = np.exp(x)
+        # Normalize by dividing by sum
+        x /= np.sum(x)
         ### END YOUR CODE
 
     assert x.shape == orig_shape
