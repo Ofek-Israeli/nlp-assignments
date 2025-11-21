@@ -36,7 +36,24 @@ def gradcheck_naive(f, x, gradient_text=""):
         # to test cost functions with built in randomness later.
 
         ### YOUR CODE HERE:
-        raise NotImplementedError
+        # Save the original value at x[ix]
+        old_value = x[ix]
+        
+        # Compute f(x + h)
+        x[ix] = old_value + h
+        random.setstate(rndstate)
+        fx_plus, _ = f(x)
+        
+        # Compute f(x - h)
+        x[ix] = old_value - h
+        random.setstate(rndstate)
+        fx_minus, _ = f(x)
+        
+        # Restore the original value
+        x[ix] = old_value
+        
+        # Calculate numerical gradient using centered difference
+        numgrad = (fx_plus - fx_minus) / (2 * h)
         ### END YOUR CODE
 
         # Compare gradients
@@ -72,7 +89,17 @@ def your_gradcheck_test():
     """
     print("Running your sanity checks...")
     ### YOUR OPTIONAL CODE HERE
-    pass
+    # Test 1: Exponential function (relevant for softmax)
+    print("Test 1: Exponential function")
+    exp_func = lambda x: (np.sum(np.exp(x)), np.exp(x))
+    gradcheck_naive(exp_func, np.random.randn(4,))
+    
+    # Test 2: Larger matrix (tests scalability)
+    print("Test 2: Larger matrix (10x10)")
+    quad = lambda x: (np.sum(x ** 2), 2*x)
+    gradcheck_naive(quad, np.random.randn(10, 10))
+    
+    print("\n Additional tests passed!")
     ### END YOUR CODE
 
 
