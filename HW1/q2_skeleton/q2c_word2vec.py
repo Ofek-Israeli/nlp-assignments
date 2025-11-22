@@ -38,7 +38,25 @@ def naive_softmax_loss_and_gradient(
     """
 
     ### YOUR CODE HERE
-    raise NotImplementedError
+    # Step 1: Compute softmax probabilities P(w|c) for all words w
+    # scores shape: (vocab_size,) - dot product of all outside vectors with center vector
+    scores = outside_vectors.dot(center_word_vec)  # U @ v_c
+    
+    # y_hat shape: (vocab_size,) - predicted probability distribution
+    y_hat = softmax(scores)
+    
+    # Step 2: Compute loss = -log(P(o|c)) where o is the true outside word
+    loss = -np.log(y_hat[outside_word_idx])
+    
+    # Step 3: Compute gradient w.r.t. center vector
+    # grad_v_c = u_o - sum_w(P(w|c) * u_w) = u_o - y_hat^T @ U
+    grad_center_vec = -outside_vectors[outside_word_idx] + y_hat.dot(outside_vectors)
+    
+    # Step 4: Compute gradient w.r.t. outside vectors
+    # For each word w: grad_u_w = y_hat_w * v_c
+    # But for true word o: grad_u_o = (y_hat_o - 1) * v_c
+    grad_outside_vecs = np.outer(y_hat, center_word_vec)  # (vocab_size, d)
+    grad_outside_vecs[outside_word_idx] -= center_word_vec  # Subtract v_c for true word
     ### END YOUR CODE
 
     return loss, grad_center_vec, grad_outside_vecs
@@ -71,7 +89,43 @@ def neg_sampling_loss_and_gradient(
     indices = [outside_word_idx] + neg_sample_word_indices
 
     ### YOUR CODE HERE
-    raise NotImplementedError
+    # Initialize gradients
+    grad_center_vec = np.zeros(center_word_vec.shape)
+    grad_outside_vecs = np.zeros(outside_vectors.shape)
+    
+    # Loss: J = -log(sigma(u_o^T v_c)) - sum_k log(sigma(-u_k^T v_c))
+    
+    # Step 1: Handle the positive (true outside word) term
+    u_o = outside_vectors[outside_word_idx]
+    score_pos = u_o.dot(center_word_vec)  # u_o^T @ v_c
+    sigmoid_pos = sigmoid(score_pos)  # sigma(u_o^T v_c)
+    
+    # Loss contribution from positive sample
+    loss = -np.log(sigmoid_pos)
+    
+    # Gradients for positive sample
+    # grad_v_c += -(1 - sigma(u_o^T v_c)) * u_o
+    grad_center_vec += -(1 - sigmoid_pos) * u_o
+    
+    # grad_u_o = -(1 - sigma(u_o^T v_c)) * v_c
+    grad_outside_vecs[outside_word_idx] += -(1 - sigmoid_pos) * center_word_vec
+    
+    # Step 2: Handle the negative samples
+    for k_idx in neg_sample_word_indices:
+        u_k = outside_vectors[k_idx]
+        score_neg = u_k.dot(center_word_vec)  # u_k^T @ v_c
+        sigmoid_neg = sigmoid(-score_neg)  # sigma(-u_k^T v_c)
+        
+        # Loss contribution from negative sample
+        loss += -np.log(sigmoid_neg)
+        
+        # Gradients for negative sample
+        # grad_v_c += (1 - sigma(-u_k^T v_c)) * u_k
+        grad_center_vec += (1 - sigmoid_neg) * u_k
+        
+        # grad_u_k = (1 - sigma(-u_k^T v_c)) * v_c
+        # Note: same word may be sampled multiple times, so we accumulate
+        grad_outside_vecs[k_idx] += (1 - sigmoid_neg) * center_word_vec
     ### END YOUR CODE
 
     return loss, grad_center_vec, grad_outside_vecs
@@ -111,7 +165,34 @@ def skipgram(current_center_word, outside_words, word2ind,
     grad_outside_vectors = np.zeros(outside_vectors.shape)
 
     ### YOUR CODE HERE
-    raise NotImplementedError
+    # Get the index of the center word
+    center_word_idx = word2ind[current_center_word]
+    
+    # Get the center word vector
+    center_word_vec = center_word_vectors[center_word_idx]
+    
+    # Iterate through each outside word in the context window
+    for outside_word in outside_words:
+        # Get the index of the outside word
+        outside_word_idx = word2ind[outside_word]
+        
+        # Compute loss and gradients for this (center, outside) pair
+        pair_loss, grad_center, grad_outside = word2vec_loss_and_gradient(
+            center_word_vec,
+            outside_word_idx,
+            outside_vectors,
+            dataset
+        )
+        
+        # Accumulate the loss
+        loss += pair_loss
+        
+        # Accumulate gradient for the center word vector
+        # Only update the gradient for this specific center word
+        grad_center_vecs[center_word_idx] += grad_center
+        
+        # Accumulate gradient for all outside vectors
+        grad_outside_vectors += grad_outside
     ### END YOUR CODE
 
     return loss, grad_center_vecs, grad_outside_vectors
